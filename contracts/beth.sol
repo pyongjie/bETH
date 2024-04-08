@@ -1,12 +1,23 @@
 pragma solidity ^0.5.0;
 
 contract Beth {
-    
+    uint8 minParticipant;
+    uint8 commissionFeeBetCreator;
+    uint8 commissionFeeDev;
+    uint8 transactionFee;
+
+    constructor(uint8 minParticipantNo, uint8 betCreatorFee, uint8 devFee, uint8 txFee) public {
+        minParticipant = minParticipantNo;
+        comissionFeeBetCreator = betCreatorFee;
+        comissionFeeDev = devFee;
+        transactionFee = txFee;
+    }
+
     struct bet {
         //uint256 betId;
-        string betName;
-        string side1Description;
-        string side2Description;
+        string memory betName;
+        string memory side1Description;
+        string memory side2Description;
         uint256 minBet;
         uint256 openingDate;
         uint256 closingDate;
@@ -21,17 +32,14 @@ contract Beth {
     uint256 public numBets = 0;
     mapping(uint256 => bet) bets;
     
-    uint8 minParticipant;
-    uint8 commissionFeeBetCreator;
-    uint8 commissionFeeDev;
-    uint8 transactionFee;
+
     uint8[] groups;
 
     //function to create a new bet
     function createBet(
-        string betName,
-        string side1Description,
-        string side2Description,
+        string memory betName,
+        string memory side1Description,
+        string memory side2Description,
         uint256 minBet,
         uint256 openingDate,
         uint256 closingDate
