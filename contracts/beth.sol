@@ -74,5 +74,12 @@ contract Beth {
         groups[newGroupId] = arr;
         return newGroupId;
     }
+
+    function viewGroup(
+        uint256 groupId
+    ) public view returns(address[] memory) {
+        address[] arr = groups[groupsId];
+        return arr;
+    }
  
 }
