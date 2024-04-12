@@ -15,6 +15,8 @@ contract Beth {
         admin = msg.sender;
     }
 
+    // Which are the important ones to show?
+    // Check Logic?
     struct bet {
         //uint256 betId;
         string betName;
@@ -125,7 +127,7 @@ contract Beth {
 
         for (uint i=0; i<winners.length; i++) {
             address payable recipient = winners[i];
-            uint256 payoutPerPerson = winnerHash[recipient] * payoutWinners;
+            uint256 payoutPerPerson = (winnerHash[recipient] / totalPrizePool) * payoutWinners;
             recipient.transfer(payoutPerPerson);
         }
     }
