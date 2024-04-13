@@ -47,6 +47,37 @@ contract Beth {
         _;
     }
 
+    modifier approvedAddresses(uint256 groupId, address addr) {
+        bool check = false;
+        
+        // Public bet
+        if (groupId == 0) {
+            check = true;    
+        } else {
+            // Private bet
+            address[] memory arr = groups[groupId];
+            for (uint256 i = 0; i < arr.length; i++) {
+                if (addr == arr[i]) {
+                    check == true;
+                }
+            }
+        }
+
+        require(check == true);
+        _;
+    }
+
+    modifier minBetAmt(uint256 betId, uint betAmt) {
+        require(betAmt >= bets[betId].minBet);
+        _;
+    }
+
+    modifier withinBettingDates(uint256 betId, uint256 curTimeStamp) {
+        require(curTimeStamp >= bets[betId].openingDate && 
+        curTimeStamp <= bets[betId].closingDate);
+        _;
+    }
+
     //function to create a new bet
     function createBet(
         string memory betName,
@@ -98,6 +129,30 @@ contract Beth {
 
     function viewBet(uint256 betId) public view returns(bet) {
         return bets[betId];
+    //function to place bets
+    function placeBet(
+        uint256 betId,
+        uint256 groupId, 
+        uint256 amount, 
+        bool betSide
+    ) public payable 
+      approvedAddresses(groupId, msg.sender) 
+      minBetAmt(betId, amount)
+      withinBettingDates(betId, block.timestamp) 
+    {
+        if (betSide) {
+            //update bet object and side 1 bet variables
+            uint256 curSide1Amt = bets[betId].stakeSide1Bet;
+            bets[betId].stakeSide1Bet = curSide1Amt + amount;
+            bets[betId].side1BetsAddress.push(msg.sender);
+            bets[betId].side1Bets[msg.sender] = amount;
+        } else {
+            //update bet object and side 2 bet variables
+            uint256 curSide2Amt = bets[betId].stakeSide2Bet;
+            bets[betId].stakeSide2Bet = curSide2Amt + amount;
+            bets[betId].side2BetsAddress.push(msg.sender);
+            bets[betId].side2Bets[msg.sender] = amount;
+        }
     }
 
     function viewCurrentOdds(uint256 betId) public view returns(uint256) {
