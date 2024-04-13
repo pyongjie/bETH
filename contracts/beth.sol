@@ -223,8 +223,7 @@ contract Beth {
         }
     }
 
-    function changeResult(uint256 betId) public view adminOnly() returns(bool) {
+    function changeResult(uint256 betId) public adminOnly() {
         bets[betId].result = !bets[betId].result;
-        return result;
     }
 }
