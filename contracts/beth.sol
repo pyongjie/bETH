@@ -200,18 +200,25 @@ contract Beth {
         }
 
         uint256 totalPrizePool = bets[betId].stakeSide1Bet + bets[betId].stakeSide2Bet;
-        uint256 txfee = tx.gas;
+        uint256 txfee = tx.gasprice;
         uint256 payoutWinners = ((100 - commissionFeeBetCreator - commissionFeeDev) / 100) * totalPrizePool - txfee * (winnerLs.length + 2);
 
-        address payable betCreator = bets[betId].betCreator;
+        address payable betCreator = address(uint160(bets[betId].betCreator));
         betCreator.transfer(commissionFeeBetCreator / 100 * totalPrizePool);
 
-        address payable dev = admin;
+        address payable dev = address(uint160(admin));
         dev.transfer(commissionFeeDev / 100 * totalPrizePool);
 
-        for (uint i=0; i<winners.length; i++) {
-            address payable recipient = winners[i];
-            uint256 payoutPerPerson = (winnerHash[recipient] / totalPrizePool) * payoutWinners;
+        for (uint i = 0; i < winnerLs.length; i++) {
+            address payable recipient = address(uint160(winnerLs[i]));
+            uint256 payoutPerPerson = 0;
+
+            if (result) {
+                payoutPerPerson = (bets[betId].side1Bets[recipient] / totalPrizePool) * payoutWinners;
+            } else {
+                payoutPerPerson = (bets[betId].side2Bets[recipient] / totalPrizePool) * payoutWinners;
+            }
+
             recipient.transfer(payoutPerPerson);
         }
     }
