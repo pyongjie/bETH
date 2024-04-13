@@ -18,7 +18,6 @@ contract Beth {
     // Which are the important ones to show?
     // Check Logic?
     struct bet {
-        //uint256 betId;
         string betName;
         string side1Description;
         string side2Description;
@@ -33,7 +32,7 @@ contract Beth {
         uint256 stakeSide1Bet;
         uint256 stakeSide2Bet;
         address[] side1BetsAddress;
-        address[] side2BetsAddess; 
+        address[] side2BetsAddress; 
         mapping(address => uint256) side1Bets;
         mapping(address => uint256) side2Bets;
     }
@@ -41,10 +40,41 @@ contract Beth {
     uint256 public numBets = 0;
     mapping(uint256 => bet) bets;
     uint256 public numGroups = 0;
-    mapping(uint256 => group) groups;
+    mapping(uint256 => address[]) groups;
 
     modifier adminOnly() {
         require(msg.sender == admin);
+        _;
+    }
+
+    modifier approvedAddresses(uint256 groupId, address addr) {
+        bool check = false;
+        
+        // Public bet
+        if (groupId == 0) {
+            check = true;    
+        } else {
+            // Private bet
+            address[] memory arr = groups[groupId];
+            for (uint256 i = 0; i < arr.length; i++) {
+                if (addr == arr[i]) {
+                    check == true;
+                }
+            }
+        }
+
+        require(check == true);
+        _;
+    }
+
+    modifier minBetAmt(uint256 betId, uint betAmt) {
+        require(betAmt >= bets[betId].minBet);
+        _;
+    }
+
+    modifier withinBettingDates(uint256 betId, uint256 curTimeStamp) {
+        require(curTimeStamp >= bets[betId].openingDate && 
+        curTimeStamp <= bets[betId].closingDate);
         _;
     }
 
@@ -57,83 +87,143 @@ contract Beth {
         uint256 openingDate,
         uint256 closingDate,
         uint256 groupId
-    ) public payable returns(uint256) {
-
+    ) public returns(uint256) {
         //new bet object
-        bet memory newBet = bet(
-            betName,
-            side1Description,
-            side2Description,
-            minBet,
-            openingDate,
-            closingDate,
-            groupId,
-            false,
-            false,
-            msg.sender,
-            0
-        );
-
+        bet memory newBet;
+        
+        //initialize relevant variables in new bet object
+        newBet.betName = betName;
+        newBet.side1Description = side1Description;
+        newBet.side2Description = side2Description;
+        newBet.minBet = minBet;
+        newBet.openingDate = openingDate;
+        newBet.closingDate = closingDate;
+        newBet.groupId = groupId;
+        newBet.completed = false;
+        newBet.result = false;
+        newBet.betCreator = msg.sender;
+        newBet.currentParticipantsCount = 0;
+        newBet.stakeSide1Bet = 0;
+        newBet.stakeSide2Bet = 0;
+        
+        //add new bet object to bets mapping
         uint256 newBetId = numBets++;
         bets[newBetId] = newBet;
+
+        //return betId
         return newBetId;
     }
 
     //function to create a group for private bets
-    function createGroup(
-        address[] memory arr
-    ) public returns(uint256) {
+    function createGroup(address[] memory arr) public returns(uint256) {
         uint256 newGroupId = numGroups++;
         groups[newGroupId] = arr;
         return newGroupId;
     }
 
-    function viewGroup(
-        uint256 groupId
-    ) public view returns(address[] memory) {
-        address[] arr = groups[groupsId];
+    //function to view group for private bets
+    function viewGroup(uint256 groupId) public view returns(address[] memory) {
+        address[] memory arr = groups[groupId];
         return arr;
     }
 
-    function viewBet(uint256 betId) public view returns(bet) {
-        return bets[betId];
+    //function to place bets
+    function placeBet(
+        uint256 betId,
+        uint256 groupId, 
+        uint256 amount, 
+        bool betSide
+    ) public payable 
+      approvedAddresses(groupId, msg.sender) 
+      minBetAmt(betId, amount)
+      withinBettingDates(betId, block.timestamp) 
+    {
+        if (betSide) {
+            //update bet object and side 1 bet variables
+            uint256 curSide1Amt = bets[betId].stakeSide1Bet;
+            bets[betId].stakeSide1Bet = curSide1Amt + amount;
+            bets[betId].side1BetsAddress.push(msg.sender);
+            bets[betId].side1Bets[msg.sender] = amount;
+        } else {
+            //update bet object and side 2 bet variables
+            uint256 curSide2Amt = bets[betId].stakeSide2Bet;
+            bets[betId].stakeSide2Bet = curSide2Amt + amount;
+            bets[betId].side2BetsAddress.push(msg.sender);
+            bets[betId].side2Bets[msg.sender] = amount;
+        }
+    }
+
+    function viewBet(uint256 betId) public view returns(
+        string memory,
+        string memory,
+        string memory,
+        uint256,
+        uint256,
+        uint256,
+        uint256,
+        bool,
+        bool,
+        address,
+        uint8,
+        uint256,
+        uint256
+    ) {
+        return (
+            bets[betId].betName,
+            bets[betId].side1Description,
+            bets[betId].side2Description,
+            bets[betId].minBet,
+            bets[betId].openingDate,
+            bets[betId].closingDate,
+            bets[betId].groupId,
+            bets[betId].completed,
+            bets[betId].result,
+            bets[betId].betCreator,
+            bets[betId].currentParticipantsCount,
+            bets[betId].stakeSide1Bet,
+            bets[betId].stakeSide2Bet);
     }
 
     function viewCurrentOdds(uint256 betId) public view returns(uint256) {
         return bets[betId].stakeSide1Bet / bets[betId].stakeSide2Bet;
     }
 
-    function payout(uint256 betId, bool result) public view adminOnly() {
+    function payout(uint256 betId, bool result) public adminOnly() {
         bets[betId].result = result;
         bets[betId].completed = true;
+        address[] memory winnerLs;
 
         if (result) {
-            uint256 winnerLs = bets[betId].side1BetsAddress;
-            mapping(address => uint256) winnerHash = bets[betId].side1Bets;
+            winnerLs = bets[betId].side1BetsAddress;
         } else {
-            uint256 winnerLs = bets[betId].side2BetsAddress;
-            mapping(address => uint256) winnerHash = bets[betId].side2Bets;
+            winnerLs = bets[betId].side2BetsAddress;
         }
 
         uint256 totalPrizePool = bets[betId].stakeSide1Bet + bets[betId].stakeSide2Bet;
-        uint256 txfee = tx.gas;
+        uint256 txfee = tx.gasprice;
         uint256 payoutWinners = ((100 - commissionFeeBetCreator - commissionFeeDev) / 100) * totalPrizePool - txfee * (winnerLs.length + 2);
 
-        address payable betCreator = bets[betId].betCreator;
+        address payable betCreator = address(uint160(bets[betId].betCreator));
         betCreator.transfer(commissionFeeBetCreator / 100 * totalPrizePool);
 
-        address payable dev = admin;
+        address payable dev = address(uint160(admin));
         dev.transfer(commissionFeeDev / 100 * totalPrizePool);
 
-        for (uint i=0; i<winners.length; i++) {
-            address payable recipient = winners[i];
-            uint256 payoutPerPerson = (winnerHash[recipient] / totalPrizePool) * payoutWinners;
+        for (uint i = 0; i < winnerLs.length; i++) {
+            address payable recipient = address(uint160(winnerLs[i]));
+            uint256 payoutPerPerson = 0;
+
+            if (result) {
+                payoutPerPerson = (bets[betId].side1Bets[recipient] / totalPrizePool) * payoutWinners;
+            } else {
+                payoutPerPerson = (bets[betId].side2Bets[recipient] / totalPrizePool) * payoutWinners;
+            }
+
             recipient.transfer(payoutPerPerson);
         }
     }
 
-    function changeResult(uint256 betId) public view adminOnly() returns(bool) {
+    function changeResult(uint256 betId) public adminOnly() {
         bets[betId].result = !bets[betId].result;
-        return result;
     }
 }
