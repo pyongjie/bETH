@@ -18,7 +18,6 @@ contract Beth {
     // Which are the important ones to show?
     // Check Logic?
     struct bet {
-        //uint256 betId;
         string betName;
         string side1Description;
         string side2Description;
@@ -33,7 +32,7 @@ contract Beth {
         uint256 stakeSide1Bet;
         uint256 stakeSide2Bet;
         address[] side1BetsAddress;
-        address[] side2BetsAddess; 
+        address[] side2BetsAddress; 
         mapping(address => uint256) side1Bets;
         mapping(address => uint256) side2Bets;
     }
