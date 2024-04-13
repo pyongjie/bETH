@@ -40,7 +40,7 @@ contract Beth {
     uint256 public numBets = 0;
     mapping(uint256 => bet) bets;
     uint256 public numGroups = 0;
-    mapping(uint256 => group) groups;
+    mapping(uint256 => address[]) groups;
 
     modifier adminOnly() {
         require(msg.sender == admin);
@@ -79,18 +79,15 @@ contract Beth {
     }
 
     //function to create a group for private bets
-    function createGroup(
-        address[] memory arr
-    ) public returns(uint256) {
+    function createGroup(address[] memory arr) public returns(uint256) {
         uint256 newGroupId = numGroups++;
         groups[newGroupId] = arr;
         return newGroupId;
     }
 
-    function viewGroup(
-        uint256 groupId
-    ) public view returns(address[] memory) {
-        address[] arr = groups[groupsId];
+    //function to view group for private bets
+    function viewGroup(uint256 groupId) public view returns(address[] memory) {
+        address[] memory arr = groups[groupId];
         return arr;
     }
 
