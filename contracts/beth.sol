@@ -127,8 +127,6 @@ contract Beth {
         return arr;
     }
 
-    function viewBet(uint256 betId) public view returns(bet) {
-        return bets[betId];
     //function to place bets
     function placeBet(
         uint256 betId,
@@ -153,6 +151,37 @@ contract Beth {
             bets[betId].side2BetsAddress.push(msg.sender);
             bets[betId].side2Bets[msg.sender] = amount;
         }
+    }
+
+    function viewBet(uint256 betId) public view returns(
+        string memory,
+        string memory,
+        string memory,
+        uint256,
+        uint256,
+        uint256,
+        uint256,
+        bool,
+        bool,
+        address,
+        uint8,
+        uint256,
+        uint256
+    ) {
+        return (
+            bets[betId].betName,
+            bets[betId].side1Description,
+            bets[betId].side2Description,
+            bets[betId].minBet,
+            bets[betId].openingDate,
+            bets[betId].closingDate,
+            bets[betId].groupId,
+            bets[betId].completed,
+            bets[betId].result,
+            bets[betId].betCreator,
+            bets[betId].currentParticipantsCount,
+            bets[betId].stakeSide1Bet,
+            bets[betId].stakeSide2Bet);
     }
 
     function viewCurrentOdds(uint256 betId) public view returns(uint256) {
