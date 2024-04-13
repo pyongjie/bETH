@@ -56,25 +56,30 @@ contract Beth {
         uint256 openingDate,
         uint256 closingDate,
         uint256 groupId
-    ) public payable returns(uint256) {
-
+    ) public returns(uint256) {
         //new bet object
-        bet memory newBet = bet(
-            betName,
-            side1Description,
-            side2Description,
-            minBet,
-            openingDate,
-            closingDate,
-            groupId,
-            false,
-            false,
-            msg.sender,
-            0
-        );
-
+        bet memory newBet;
+        
+        //initialize relevant variables in new bet object
+        newBet.betName = betName;
+        newBet.side1Description = side1Description;
+        newBet.side2Description = side2Description;
+        newBet.minBet = minBet;
+        newBet.openingDate = openingDate;
+        newBet.closingDate = closingDate;
+        newBet.groupId = groupId;
+        newBet.completed = false;
+        newBet.result = false;
+        newBet.betCreator = msg.sender;
+        newBet.currentParticipantsCount = 0;
+        newBet.stakeSide1Bet = 0;
+        newBet.stakeSide2Bet = 0;
+        
+        //add new bet object to bets mapping
         uint256 newBetId = numBets++;
         bets[newBetId] = newBet;
+
+        //return betId
         return newBetId;
     }
 
