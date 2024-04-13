@@ -188,16 +188,15 @@ contract Beth {
         return bets[betId].stakeSide1Bet / bets[betId].stakeSide2Bet;
     }
 
-    function payout(uint256 betId, bool result) public view adminOnly() {
+    function payout(uint256 betId, bool result) public adminOnly() {
         bets[betId].result = result;
         bets[betId].completed = true;
+        address[] memory winnerLs;
 
         if (result) {
-            uint256 winnerLs = bets[betId].side1BetsAddress;
-            mapping(address => uint256) winnerHash = bets[betId].side1Bets;
+            winnerLs = bets[betId].side1BetsAddress;
         } else {
-            uint256 winnerLs = bets[betId].side2BetsAddress;
-            mapping(address => uint256) winnerHash = bets[betId].side2Bets;
+            winnerLs = bets[betId].side2BetsAddress;
         }
 
         uint256 totalPrizePool = bets[betId].stakeSide1Bet + bets[betId].stakeSide2Bet;
