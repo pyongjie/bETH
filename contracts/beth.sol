@@ -68,22 +68,6 @@ contract Beth {
             }
         }
 
-        // check if address has already placed for bet
-        // address[] memory sidearr = bets[betId].side1BetsAddress;
-        // for (uint256 i = 0; i < sidearr.length; i++) {
-        //         if (addr == sidearr[i]) {
-        //             check = false;
-        //         }
-        // }   
-
-        // // check if address has already placed for bet
-        // sidearr = bets[betId].side2BetsAddress;
-        // for (uint256 i = 0; i < sidearr.length; i++) {
-        //         if (addr == sidearr[i]) {
-        //             check = false;
-        //         }
-        // } 
-
         require(check == true, "Current address is not allowed to place bet");
         _;
     }
