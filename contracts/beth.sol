@@ -8,7 +8,7 @@ contract Beth {
     uint8 transactionFee;
     address admin;
 
-    constructor(uint8 minParticipantNo, uint8 betCreatorFee, uint8 devFee, uint8 txFee) public {
+    constructor(uint8 minParticipantNo, uint8 betCreatorFee, uint8 devFee, uint8 txFee) public payable {
         minParticipant = minParticipantNo;
         commissionFeeBetCreator = betCreatorFee;
         commissionFeeDev = devFee;
@@ -41,7 +41,7 @@ contract Beth {
     mapping(uint256 => bet) bets;
     uint256 public numGroups = 0;
     mapping(uint256 => address[]) groups;
-    uint256 constant DELAY = 1 minutes;
+    uint256 constant DELAY = 1 minutes; // This is 24 hours but for demonstration we use 1 min
 
     event PayoutDelayed(uint256 executionTime);
     event PayoutExecuted();
@@ -68,20 +68,20 @@ contract Beth {
         }
 
         // check if address has already placed for bet
-        address[] memory sidearr = bets[betId].side1BetsAddress;
-        for (uint256 i = 0; i < sidearr.length; i++) {
-                if (addr == sidearr[i]) {
-                    check = false;
-                }
-        }   
+        // address[] memory sidearr = bets[betId].side1BetsAddress;
+        // for (uint256 i = 0; i < sidearr.length; i++) {
+        //         if (addr == sidearr[i]) {
+        //             check = false;
+        //         }
+        // }   
 
-        // check if address has already placed for bet
-        sidearr = bets[betId].side2BetsAddress;
-        for (uint256 i = 0; i < sidearr.length; i++) {
-                if (addr == sidearr[i]) {
-                    check = false;
-                }
-        } 
+        // // check if address has already placed for bet
+        // sidearr = bets[betId].side2BetsAddress;
+        // for (uint256 i = 0; i < sidearr.length; i++) {
+        //         if (addr == sidearr[i]) {
+        //             check = false;
+        //         }
+        // } 
 
         require(check == true, "Current address is not allowed to place bet");
         _;
@@ -127,7 +127,7 @@ contract Beth {
         newBet.minBet = minBet;
         newBet.openingDate = openingDate;
         newBet.closingDate = closingDate;
-        newBet.payoutDate = closingDate;
+        newBet.payoutDate = 0;
         newBet.groupId = groupId;
         newBet.completed = false;
         newBet.result = false;
@@ -136,7 +136,6 @@ contract Beth {
         newBet.stakeSide1Bet = 0;
         newBet.stakeSide2Bet = 0;
 
-        //return betId
         return newBetId;
     }
 
@@ -151,21 +150,18 @@ contract Beth {
         require(msg.value >= bets[betId].minBet, "Bet amount is less than minimum bet");
         require(block.timestamp >= bets[betId].openingDate && block.timestamp <= bets[betId].closingDate, "Bet not placed within betting dates");
         
-        address payable recipient = payable(admin);
-        recipient.transfer(msg.value);
-        
         if (betSide) {
             //update bet object and side 1 bet variables
             uint256 curSide1Amt = bets[betId].stakeSide1Bet;
             bets[betId].stakeSide1Bet = curSide1Amt + msg.value;
             bets[betId].side1BetsAddress.push(msg.sender);
-            bets[betId].side1Bets[msg.sender] = msg.value;
+            bets[betId].side1Bets[msg.sender] += msg.value;
         } else {
             //update bet object and side 2 bet variables
             uint256 curSide2Amt = bets[betId].stakeSide2Bet;
             bets[betId].stakeSide2Bet = curSide2Amt + msg.value;
             bets[betId].side2BetsAddress.push(msg.sender);
-            bets[betId].side2Bets[msg.sender] = msg.value;
+            bets[betId].side2Bets[msg.sender] += msg.value;
         }
     }
 
@@ -233,7 +229,7 @@ contract Beth {
 
     // Admin Functions
     // wrapper function for admin to pay betters with 24 hours delay
-    function executePayout(uint256 betId, bool result) public adminOnly() {
+    function executePayout(uint256 betId, bool result) public adminOnly() validBet(betId) {
         require(block.timestamp >= bets[betId].closingDate, "Payout can only be executed after closing date");
         bets[betId].result = result;
         bets[betId].payoutDate = block.timestamp + DELAY;
@@ -241,9 +237,8 @@ contract Beth {
     }
 
     // function to payout betters
-    function payout(uint256 betId) public adminOnly() {
-        //onlyAfter(bets[betId].payoutDate
-        //require(bets[betId].closingDate != bets[betId].payoutDate, "Admin has not set results, so payout date is not set");
+    function payout(uint256 betId) public adminOnly() onlyAfter(bets[betId].payoutDate) {
+        require(bets[betId].closingDate != 0, "Admin has not set results, so payout date is not set");
         address[] memory winnerLs;
 
         if (bets[betId].result) {
@@ -285,38 +280,12 @@ contract Beth {
     }
 
     // function for admin to edit result of the bet
-    function changeResult(uint256 betId) public adminOnly() returns (bool) {
+    function changeResult(uint256 betId) public adminOnly() validBet(betId) returns (bool) {
         bets[betId].result = !bets[betId].result;
         return !bets[betId].result;
     }
 
-    // A lot of helper functions here for debugging
-    // will delete later
-    function viewBetSide1Stakes(uint256 betId) public view returns (uint256) {
-        return bets[betId].stakeSide1Bet;
-    }
-
-    function viewBetSide2Stakes(uint256 betId) public view returns (uint256) {
-        return bets[betId].stakeSide2Bet;
-    }
-
-    function viewBetSide1Add(uint256 betId) public view returns (address[] memory) {
-        return bets[betId].side1BetsAddress;
-    }
-
-    function viewBetSide2Add(uint256 betId) public view returns (address[] memory) {
-        return bets[betId].side2BetsAddress;
-    }
-
-    function viewbetCreator(uint256 betId) public view returns (address) {
-        return bets[betId].betCreator;
-    }
-
     function getCurrentTimestamp() public view returns(uint256) {
         return block.timestamp;
-    }
-
-    function getGas() public view returns(uint256) {
-        return tx.gasprice;
     }
 }
