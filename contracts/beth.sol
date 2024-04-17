@@ -42,6 +42,7 @@ contract Beth {
     uint256 public numGroups = 0;
     mapping(uint256 => address[]) groups;
     uint256 constant DELAY = 1 minutes; // This is 24 hours but for demonstration we use 1 min
+    uint256 constant averageGasLimit = 30000000;
 
     event PayoutDelayed(uint256 executionTime);
     event PayoutExecuted();
@@ -206,7 +207,6 @@ contract Beth {
         if (bets[betId].stakeSide2Bet == 0) {
             return 0;
         }
-
         return ABDKMath64x64.divu(bets[betId].stakeSide1Bet, bets[betId].stakeSide2Bet);
     }
 
@@ -248,7 +248,7 @@ contract Beth {
         }
 
         uint256 totalPrizePool = bets[betId].stakeSide1Bet + bets[betId].stakeSide2Bet;
-        uint256 txfee = tx.gasprice;
+        uint256 txfee = tx.gasprice * averageGasLimit;
         uint256 payoutWinners = ((100 - commissionFeeBetCreator - commissionFeeDev) * totalPrizePool / 100)  - txfee * (winnerLs.length + 2);
 
         //Pay bet initiator
@@ -266,9 +266,9 @@ contract Beth {
             uint256 payoutPerPerson = 0;
 
             if (bets[betId].result) {
-                payoutPerPerson = bets[betId].side1Bets[recipient] * payoutWinners / totalPrizePool ;
+                payoutPerPerson = bets[betId].side1Bets[recipient] * payoutWinners / bets[betId].stakeSide1Bet ;
             } else {
-                payoutPerPerson = bets[betId].side2Bets[recipient] * payoutWinners / totalPrizePool ;
+                payoutPerPerson = bets[betId].side2Bets[recipient] * payoutWinners / bets[betId].stakeSide2Bet ;
             }
 
             recipient.transfer(payoutPerPerson);
@@ -287,5 +287,9 @@ contract Beth {
 
     function getCurrentTimestamp() public view returns(uint256) {
         return block.timestamp;
+    }
+
+    function checkGasPrice() public view returns(uint256) {
+        return tx.gasprice;
     }
 }
