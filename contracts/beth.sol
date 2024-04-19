@@ -7,11 +7,7 @@ contract Beth {
     uint8 transactionFee;
     address admin;
 
-    constructor(
-        uint8 betCreatorFee,
-        uint8 devFee,
-        uint8 txFee
-    ) public payable {
+    constructor(uint8 betCreatorFee, uint8 devFee, uint8 txFee) public payable {
         commissionFeeBetCreator = betCreatorFee;
         commissionFeeDev = devFee;
         transactionFee = txFee;
@@ -46,6 +42,12 @@ contract Beth {
     uint256 constant DELAY = 1440 minutes; // 24 hours
     uint256 constant averageGasLimit = 30000000;
 
+    event betPlaced(
+        uint256 betId,
+        bool betSide,
+        address bettorAddress,
+        uint256 betValue
+    );
     event PayoutDelayed(uint256 executionTime);
     event PayoutExecuted();
 
@@ -168,6 +170,7 @@ contract Beth {
             bets[betId].side2BetsAddress.push(msg.sender);
             bets[betId].side2Bets[msg.sender] += msg.value;
         }
+        emit betPlaced(betId, betSide, msg.sender, msg.value);
     }
 
     // function to view bet name
