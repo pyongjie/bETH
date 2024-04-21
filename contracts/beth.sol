@@ -120,9 +120,8 @@ contract Beth {
         uint256 groupId
     ) public validGroupId(groupId) returns (uint256) {
         // New bet object
-        bet storage newBet;
         uint256 newBetId = numBets++;
-        bets[newBetId] = newBet; 
+        bet storage newBet = bets[newBetId]; 
 
         // Initialize relevant variables in new bet object
         newBet.betName = betName;
