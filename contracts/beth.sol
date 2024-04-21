@@ -3,17 +3,22 @@ import "./ABDKMath64x64.sol";
 
 contract Beth {
     uint8 commissionFeeBetCreator;
-    uint8 commissionFeeDev;
+    uint8 commissionFeeAdmin;
     uint8 transactionFee;
     address admin;
 
-    constructor(uint8 betCreatorFee, uint8 devFee, uint8 txFee) public payable {
+    // Init contract
+    constructor(uint8 betCreatorFee, uint8 adminFee, uint8 txFee) public payable {
         commissionFeeBetCreator = betCreatorFee;
-        commissionFeeDev = devFee;
+        commissionFeeAdmin = adminFee;
         transactionFee = txFee;
         admin = msg.sender;
     }
 
+    uint256 constant DELAY = 1440 minutes; // 24 hours
+    uint256 constant averageGasLimit = 30000000;
+
+    // Bet object
     struct bet {
         string betName;
         string side1Description;
@@ -39,35 +44,35 @@ contract Beth {
     mapping(uint256 => bet) bets;
     uint256 public numGroups = 0;
     mapping(uint256 => address[]) groups;
-    uint256 constant DELAY = 1440 minutes; // 24 hours
-    uint256 constant averageGasLimit = 30000000;
 
+    // Events
     event betPlaced(
         uint256 betId,
         bool betSide,
         address bettorAddress,
         uint256 betValue
     );
-    event PayoutDelayed(uint256 executionTime);
-    event PayoutExecuted();
+    event payoutDelayed(uint256 executionTime);
+    event payoutExecuted();
+    event betResultChanged(bool result);
 
+    // Modifiers to implement reusable requirements
     modifier adminOnly() {
         require(msg.sender == admin, "Only an admin can execute this function");
         _;
     }
 
-    modifier approvedAddresses(
+    modifier approvedAddress(
         uint256 groupId,
         uint256 betId,
         address addr
     ) {
         bool check = false;
-
-        // check if bet group is public
+        // Check if bet group is public
         if (groupId == 0) {
             check = true;
         } else {
-            // check if address is in approved list of addresses for private group
+            // Check if address is inside the approved list of addresses for private group
             address[] memory arr = groups[groupId];
             for (uint256 i = 0; i < arr.length; i++) {
                 if (addr == arr[i]) {
@@ -78,12 +83,12 @@ contract Beth {
 
         require(
             check == true,
-            "Caller is not approved to place bet in this group"
+            "User is not approved to place bet in this group"
         );
         _;
     }
 
-    modifier onlyAfter(uint256 time) {
+    modifier onlyAfterDelay(uint256 time) {
         require(
             block.timestamp >= time,
             "Payout can only be called after 24 hours"
@@ -91,20 +96,20 @@ contract Beth {
         _;
     }
 
-    modifier existingGroup(uint256 groupId) {
+    modifier validGroupId(uint256 groupId) {
         if (groupId != 0) {
-            require(groups[groupId].length != 0, "GroupId is invalid");
+            require(groups[groupId].length != 0, "groupId is invalid");
         }
         _;
     }
 
-    modifier validBet(uint256 betId) {
-        require(bets[betId].openingDate != 0, "BetId is invalid");
+    modifier validBetId(uint256 betId) {
+        require(bets[betId].openingDate != 0, "betId is invalid");
         _;
     }
 
-    // Bet Functions
-    //function to create a new bet
+    // Bet functions for all users
+    // Function to create a new bet
     function createBet(
         string memory betName,
         string memory side1Description,
@@ -113,12 +118,12 @@ contract Beth {
         uint256 openingDate,
         uint256 closingDate,
         uint256 groupId
-    ) public existingGroup(groupId) returns (uint256) {
-        //new bet object
+    ) public validGroupId(groupId) returns (uint256) {
+        // New bet object
         uint256 newBetId = numBets++;
         bet storage newBet = bets[newBetId];
 
-        //initialize relevant variables in new bet object
+        // Initialize relevant variables in new bet object
         newBet.betName = betName;
         newBet.side1Description = side1Description;
         newBet.side2Description = side2Description;
@@ -137,15 +142,15 @@ contract Beth {
         return newBetId;
     }
 
-    //function to place bets
+    // Function to place bets
     function placeBet(
         uint256 betId,
         bool betSide
     )
         public
         payable
-        validBet(betId)
-        approvedAddresses(bets[betId].groupId, betId, msg.sender)
+        validBetId(betId)
+        approvedAddress(bets[betId].groupId, betId, msg.sender)
     {
         require(
             msg.value >= bets[betId].minBet,
@@ -154,79 +159,83 @@ contract Beth {
         require(
             block.timestamp >= bets[betId].openingDate &&
                 block.timestamp <= bets[betId].closingDate,
-            "Bet not placed within betting dates"
+            "Bet has to be placed within betting dates"
         );
 
+        // Bet on side 1
         if (betSide) {
-            //update bet object and side 1 bet variables
+            // Update bet object and side 1 bet variables
             uint256 curSide1Amt = bets[betId].stakeSide1Bet;
             bets[betId].stakeSide1Bet = curSide1Amt + msg.value;
             bets[betId].side1BetsAddress.push(msg.sender);
             bets[betId].side1Bets[msg.sender] += msg.value;
+        // Bet on side 2
         } else {
-            //update bet object and side 2 bet variables
+            // Update bet object and side 2 bet variables
             uint256 curSide2Amt = bets[betId].stakeSide2Bet;
             bets[betId].stakeSide2Bet = curSide2Amt + msg.value;
             bets[betId].side2BetsAddress.push(msg.sender);
             bets[betId].side2Bets[msg.sender] += msg.value;
         }
+
         emit betPlaced(betId, betSide, msg.sender, msg.value);
     }
 
-    // function to view bet name
+    // Function to view bet name
     function viewBetName(uint256 betId) public view returns (string memory) {
         return bets[betId].betName;
     }
 
-    // function to view bet side 1 name
+    // Function to view bet side 1 name
     function viewBetSide1Name(
         uint256 betId
     ) public view returns (string memory) {
         return bets[betId].side1Description;
     }
 
-    // function to view bet side 2 name
+    // Function to view bet side 2 name
     function viewBetSide2Name(
         uint256 betId
     ) public view returns (string memory) {
         return bets[betId].side2Description;
     }
 
-    // function to view bet opening date
+    // Function to view bet opening date
     function viewBetOpeningDate(uint256 betId) public view returns (uint256) {
         return bets[betId].openingDate;
     }
 
-    // function to view bet closing date
+    // Function to view bet closing date
     function viewBetClosingDate(uint256 betId) public view returns (uint256) {
         return bets[betId].closingDate;
     }
 
-    // function to view bet result
+    // Function to view bet result
     function viewBetResult(uint256 betId) public view returns (bool) {
         return bets[betId].result;
     }
 
-    // function to view completion status
+    // Function to view bet completion status
     function viewCompletionStatus(uint256 betId) public view returns (bool) {
         return bets[betId].completed;
     }
 
-    // function to view the current odds
+    // Function to view the current odds of the bet
     function viewCurrentOdds(uint256 betId) public view returns (int128) {
         // For the case when the denominator is 0
         if (bets[betId].stakeSide2Bet == 0) {
             return 0;
         }
         return
+            // Calculate odds using ABDKMath64x64 divison which supports floating point number
             ABDKMath64x64.divu(
                 bets[betId].stakeSide1Bet,
                 bets[betId].stakeSide2Bet
             );
     }
 
-    // Group Functions
-    //function to create a group for private bets
+    // Group functions for all users
+    // Function to create a group for private bets
     function createGroup(address[] memory arr) public returns (uint256) {
         numGroups++;
         uint256 newGroupId = numGroups;
@@ -234,101 +243,118 @@ contract Beth {
         return newGroupId;
     }
 
-    //function to view group for private bets
+    // Function to view group for private bets
     function viewGroup(uint256 groupId) public view returns (address[] memory) {
         address[] memory arr = groups[groupId];
         return arr;
     }
 
-    // Admin Functions
-    // wrapper function for admin to pay betters with 24 hours delay
+    // Functions for admin only
+    // Wrapper function for admin to set the bet result and to pay betters after 24 hours delay
     function executePayout(
         uint256 betId,
         bool result
-    ) public adminOnly validBet(betId) {
+    ) public adminOnly validBetId(betId) {
         require(
             block.timestamp >= bets[betId].closingDate,
             "Payout can only be executed after closing date"
         );
+
+        // Set the bet result
         bets[betId].result = result;
+        // Set the payoutDate with 24 hours delay after this function is called
         bets[betId].payoutDate = block.timestamp + DELAY;
-        emit PayoutDelayed(bets[betId].payoutDate);
+
+        emit payoutDelayed(bets[betId].payoutDate);
     }
 
-    // function to payout betters
+    // Function to payout prize pool to winners and commission fees to admin and bet creator
     function payout(
         uint256 betId
-    ) public adminOnly onlyAfter(bets[betId].payoutDate) {
+    ) public adminOnly onlyAfterDelay(bets[betId].payoutDate) {
         require(
             bets[betId].closingDate != 0,
-            "Admin has not set results, so payout date is not set"
+            "Payout date not set as admin has yet to call wrapper function and set results"
         );
+        
+        // List of winners
         address[] memory winnerLs;
 
+        // If side 1 won the bet
         if (bets[betId].result) {
             winnerLs = bets[betId].side1BetsAddress;
+        // If side 2 won the bet
         } else {
             winnerLs = bets[betId].side2BetsAddress;
         }
 
-        uint256 totalPrizePool = bets[betId].stakeSide1Bet +
-            bets[betId].stakeSide2Bet;
-        uint256 txfee = tx.gasprice * averageGasLimit;
-        uint256 payoutWinners = (((100 -
+        uint256 totalPrizePool = bets[betId].stakeSide1Bet + bets[betId].stakeSide2Bet;
+        // Calculate total transaction fee for winner payouts including gas price
+        uint256 totalTxFee = transactionFee * tx.gasprice * averageGasLimit;
+        // Calculate prize pool for the winners after deducting the commission fee and total tx fee
+        uint256 winnerPrizePool = (((100 -
             commissionFeeBetCreator -
-            commissionFeeDev) * totalPrizePool) / 100) -
-            txfee *
+            commissionFeeAdmin) * totalPrizePool) / 100) -
+            totalTxFee *
             (winnerLs.length + 2);
 
-        //Pay bet initiator
-        address payable betCreator = payable(bets[betId].betCreator);
-        uint256 betCreatorPayment = (commissionFeeBetCreator * totalPrizePool) /
-            100;
-        betCreator.transfer(betCreatorPayment);
+        //Pay bet creator
+        address payable betCreatorPayout = payable(bets[betId].betCreator);
+        uint256 betCreatorPayment = (commissionFeeBetCreator * totalPrizePool) / 100;
+        betCreatorPayout.transfer(betCreatorPayment);
 
-        // Pay developers
-        address payable dev = payable(admin);
-        dev.transfer((commissionFeeDev * totalPrizePool) / 100);
+        // Pay admin
+        address payable adminPayout = payable(admin);
+        uint256 adminPayment = (commissionFeeAdmin * totalPrizePool) / 100;
+        adminPayout.transfer(adminPayment);
 
-        // Iterate through winners list to pay each winner depending on their stake
+        // Iterate through the winners list to pay each winner depending on their stakes made
         for (uint i = 0; i < winnerLs.length; i++) {
-            address payable recipient = payable(winnerLs[i]);
-            uint256 payoutPerPerson = 0;
+            address payable winnerPayout = payable(winnerLs[i]);
+            uint256 paymentPerPerson = 0;
 
+            // If side 1 won the bet
             if (bets[betId].result) {
-                payoutPerPerson =
-                    (bets[betId].side1Bets[recipient] * payoutWinners) /
+                paymentPerPerson =
+                    (bets[betId].side1Bets[winnerPayout] * winnerPrizePool) /
                     bets[betId].stakeSide1Bet;
+            // If side 2 won the bet
             } else {
-                payoutPerPerson =
-                    (bets[betId].side2Bets[recipient] * payoutWinners) /
+                paymentPerPerson =
+                    (bets[betId].side2Bets[winnerPayout] * winnerPrizePool) /
                     bets[betId].stakeSide2Bet;
             }
 
-            recipient.transfer(payoutPerPerson);
+            winnerPayout.transfer(paymentPerPerson);
         }
 
-        // Change payout and completion status
+        // Update bet completion status
         bets[betId].completed = true;
-        emit PayoutExecuted();
+
+        emit payoutExecuted();
     }
 
-    // function for admin to edit result of the bet
+    // Function for admin to edit result of the bet within the 24 hours delay
     function changeResult(
         uint256 betId
-    ) public adminOnly validBet(betId) returns (bool) {
+    ) public adminOnly validBetId(betId) {
         require(
             bets[betId].completed == false,
-            "Bet has already been paid out"
+            "Bet has already been paid out and completed"
         );
+
         bets[betId].result = !bets[betId].result;
-        return !bets[betId].result;
+
+        emit betResultChanged(bets[betId].result);
     }
 
+    // General functions for all users
+    // Function to get current timestamp
     function getCurrentTimestamp() public view returns (uint256) {
         return block.timestamp;
     }
 
+    // Function to check current gas price
     function checkGasPrice() public view returns (uint256) {
         return tx.gasprice;
     }
