@@ -317,6 +317,10 @@ contract Beth {
     function changeResult(
         uint256 betId
     ) public adminOnly validBet(betId) returns (bool) {
+        require(
+            bets[betId].completed == false,
+            "Bet has already been paid out"
+        );
         bets[betId].result = !bets[betId].result;
         return !bets[betId].result;
     }
